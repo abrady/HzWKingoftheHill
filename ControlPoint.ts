@@ -51,25 +51,25 @@ export class ControlPoint extends Component {
 
   @subscribe(OnEntityStartEvent)
   onStart() {
-    console.log("🎮 ControlPoint: Initializing control point");
+    // console.log("🎮 ControlPoint: Initializing control point");
     this.updateControlPointColor();
   }
 
   @subscribe(OnTriggerEnterEvent)
   onTriggerEnter(event: OnTriggerEnterPayload) {
-    console.log("🎯 ControlPoint: Trigger entered!", event);
+    // console.log("🎯 ControlPoint: Trigger entered!", event);
 
     // Check if a player entity entered the trigger
     if (event.actorEntity) {
-      console.log("✅ ControlPoint: Actor entity found:", event.actorEntity);
+      // console.log("✅ ControlPoint: Actor entity found:", event.actorEntity);
 
       const player = event.actorEntity.getComponent(PlayerComponent);
       if (player) {
-        console.log("👤 ControlPoint: Player component found!");
+        // console.log("👤 ControlPoint: Player component found!");
 
         // Determine player team (simple approach: use entity ID for demo)
         const team = this.getPlayerTeam(event.actorEntity);
-        console.log(`🎭 ControlPoint: Player assigned to team: ${team}`);
+        // console.log(`🎭 ControlPoint: Player assigned to team: ${team}`);
 
         // Add player to appropriate team set
         if (team === Team.Red) {
@@ -88,23 +88,23 @@ export class ControlPoint extends Component {
           controlPointEntity: this.entity,
         });
 
-        console.log("📤 ControlPoint: PlayerTouchedControlPoint event sent");
+        // console.log("📤 ControlPoint: PlayerTouchedControlPoint event sent");
       } else {
-        console.log("❌ ControlPoint: No player component found on actor");
+        // console.log("❌ ControlPoint: No player component found on actor");
       }
     } else {
-      console.log("❌ ControlPoint: No actor entity in trigger event");
+      // console.log("❌ ControlPoint: No actor entity in trigger event");
     }
   }
 
   @subscribe(OnTriggerExitEvent)
   onTriggerExit(event: OnTriggerExitPayload) {
-    console.log("🚪 ControlPoint: Trigger exited!", event);
+    // console.log("🚪 ControlPoint: Trigger exited!", event);
 
     if (event.actorEntity) {
       const player = event.actorEntity.getComponent(PlayerComponent);
       if (player) {
-        console.log("👤 ControlPoint: Player exiting trigger");
+        // console.log("👤 ControlPoint: Player exiting trigger");
 
         // Remove player from both team sets
         this.redPlayersInTrigger.delete(event.actorEntity);
@@ -114,7 +114,7 @@ export class ControlPoint extends Component {
         this.updateControlPointState();
         this.updateControlPointColor();
 
-        console.log(`📊 ControlPoint: Updated state to ${this.currentState}`);
+        // console.log(`📊 ControlPoint: Updated state to ${this.currentState}`);
       }
     }
   }
@@ -138,25 +138,41 @@ export class ControlPoint extends Component {
     const hasRedPlayers = this.redPlayersInTrigger.size > 0;
     const hasBluePlayers = this.bluePlayersInTrigger.size > 0;
 
+    let newControlPointState: ControlPointState;
     if (hasRedPlayers && hasBluePlayers) {
-      this.currentState = ControlPointState.Contested;
+      newControlPointState = ControlPointState.Contested;
     } else if (hasRedPlayers) {
-      this.currentState = ControlPointState.RedControlled;
+      newControlPointState = ControlPointState.RedControlled;
     } else if (hasBluePlayers) {
-      this.currentState = ControlPointState.BlueControlled;
+      newControlPointState = ControlPointState.BlueControlled;
     } else {
-      this.currentState = ControlPointState.Neutral;
+      // no change. keep the current state
+      return;
     }
 
+    if (newControlPointState === this.currentState) {
+      return;
+    }
+    this.currentState = newControlPointState;
+
     console.log(
-      `📊 ControlPoint: State updated to ${this.currentState} (Red: ${this.redPlayersInTrigger.size}, Blue: ${this.bluePlayersInTrigger.size})`
+      `ControlPoint: State updated to ${this.currentState} (Red: ${this.redPlayersInTrigger.size}, Blue: ${this.bluePlayersInTrigger.size})`
     );
   }
 
   private updateControlPointColor() {
-    const colorComponent = this.entity.getComponent(ColorComponent);
+    // Look for ColorComponent on the parent entity (the visual object)
+    const parentEntity = this.entity.parent;
+    if (!parentEntity) {
+      console.log(
+        "❌ ControlPoint: No parent entity found - trigger volume should be a child of the visual object"
+      );
+      return;
+    }
+
+    const colorComponent = parentEntity.getComponent(ColorComponent);
     if (!colorComponent) {
-      console.log("❌ ControlPoint: No ColorComponent found on entity");
+      console.log("❌ ControlPoint: No ColorComponent found on parent entity");
       return;
     }
 
@@ -182,6 +198,6 @@ export class ControlPoint extends Component {
     }
 
     colorComponent.color = newColor;
-    console.log(`🎨 ControlPoint: Color updated successfully`);
+    // console.log(`🎨 ControlPoint: Color updated successfully`);
   }
 }
