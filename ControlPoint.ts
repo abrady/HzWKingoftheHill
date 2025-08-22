@@ -9,6 +9,8 @@ import {
   type IEntity,
   Color,
   OnEntityStartEvent,
+  NetworkEvent,
+  Execution,
 } from "meta/platform_api@index";
 import { console } from "meta/scripting_jsi@native_objects/Console";
 import {
@@ -20,11 +22,46 @@ import {
 import { PlayerComponent } from "meta/player@index";
 import { ColorComponent } from "meta/renderer@index";
 
-// Temporary team enum definition - will be moved to proper global system later
+// Team enum definition (matches TeamManager)
 enum Team {
   Red = "red",
   Blue = "blue",
 }
+
+/**
+ * Team assignment event payload (matches TeamManager)
+ */
+@serializable()
+class PlayerTeamAssignedPayload {
+  public readonly playerEntity: IEntity | null = null;
+  public readonly team: Team = Team.Red;
+  public readonly redTeamCount: number = 0;
+  public readonly blueTeamCount: number = 0;
+}
+
+/**
+ * Team removal event payload (matches TeamManager)
+ */
+@serializable()
+class PlayerTeamRemovedPayload {
+  public readonly playerEntity: IEntity | null = null;
+  public readonly team: Team = Team.Red;
+  public readonly redTeamCount: number = 0;
+  public readonly blueTeamCount: number = 0;
+}
+
+/**
+ * Network events (must match TeamManager exactly)
+ */
+const PlayerTeamAssignedNetworkEvent = new NetworkEvent(
+  "PlayerTeamAssignedNetwork",
+  PlayerTeamAssignedPayload
+);
+
+const PlayerTeamRemovedNetworkEvent = new NetworkEvent(
+  "PlayerTeamRemovedNetwork",
+  PlayerTeamRemovedPayload
+);
 
 enum ControlPointState {
   Neutral = "neutral",
@@ -50,11 +87,64 @@ export class ControlPoint extends Component {
   private bluePlayersInTrigger: Set<IEntity> = new Set();
   private currentState: ControlPointState = ControlPointState.Neutral;
 
+  // Local registry of player team assignments (synced via network events)
+  private static playerTeams: Map<IEntity, Team> = new Map();
+
   @subscribe(OnEntityStartEvent)
   onStart() {
-    // console.log("🎮 ControlPoint: Initializing control point");
+    console.log(
+      "🎮 ControlPoint: Initializing control point with networked team system"
+    );
     this.updateControlPointColor();
     this.updateUIScores();
+  }
+
+  /**
+   * ALL CLIENTS - Listen for team assignments from TeamManager
+   * This keeps our local team registry in sync
+   */
+  @subscribe(PlayerTeamAssignedNetworkEvent, {
+    execution: Execution.Everywhere,
+  })
+  onPlayerTeamAssigned(payload: PlayerTeamAssignedPayload) {
+    if (!payload.playerEntity) {
+      console.log("❌ ControlPoint: Invalid player entity in team assignment");
+      return;
+    }
+
+    console.log(
+      `🌐 ControlPoint [ALL CLIENTS]: Player ${payload.playerEntity.debugId} assigned to ${payload.team} team`
+    );
+
+    // Update local player team registry
+    ControlPoint.playerTeams.set(payload.playerEntity, payload.team);
+
+    console.log(
+      `📊 ControlPoint: Updated local team registry - Total players: ${ControlPoint.playerTeams.size}`
+    );
+  }
+
+  /**
+   * ALL CLIENTS - Listen for team removals from TeamManager
+   * This keeps our local team registry in sync
+   */
+  @subscribe(PlayerTeamRemovedNetworkEvent, { execution: Execution.Everywhere })
+  onPlayerTeamRemoved(payload: PlayerTeamRemovedPayload) {
+    if (!payload.playerEntity) {
+      console.log("❌ ControlPoint: Invalid player entity in team removal");
+      return;
+    }
+
+    console.log(
+      `🌐 ControlPoint [ALL CLIENTS]: Player ${payload.playerEntity.debugId} removed from ${payload.team} team`
+    );
+
+    // Update local player team registry
+    ControlPoint.playerTeams.delete(payload.playerEntity);
+
+    console.log(
+      `📊 ControlPoint: Updated local team registry - Total players: ${ControlPoint.playerTeams.size}`
+    );
   }
 
   @subscribe(OnTriggerEnterEvent)
@@ -69,8 +159,16 @@ export class ControlPoint extends Component {
       if (player) {
         // console.log("👤 ControlPoint: Player component found!");
 
-        // Get player team assignment
+        // Get player team assignment from networked system
         const team = this.getPlayerTeam(event.actorEntity);
+
+        // Only process players with valid team assignments
+        if (team === null) {
+          console.log(
+            `⚠️ ControlPoint: Player ${event.actorEntity.debugId} entered trigger but has no team assignment yet - ignoring`
+          );
+          return;
+        }
 
         console.log(
           `🎭 ControlPoint: Player ${event.actorEntity.debugId} from ${team} team entered`
@@ -124,22 +222,21 @@ export class ControlPoint extends Component {
     }
   }
 
-  private getPlayerTeam(playerEntity: IEntity): Team {
-    // Temporary simple team assignment based on entity debug ID hash
-    // This will be replaced with proper global team management once imports work
-    const debugId = playerEntity.debugId;
+  private getPlayerTeam(playerEntity: IEntity): Team | null {
+    // Use networked team assignments from TeamManager
+    const team = ControlPoint.playerTeams.get(playerEntity);
 
-    // Simple hash function to convert debugId string to number
-    let hash = 0;
-    for (let i = 0; i < debugId.length; i++) {
-      hash = ((hash << 5) - hash + debugId.charCodeAt(i)) & 0xffffffff;
+    if (team !== undefined) {
+      console.log(
+        `🎭 ControlPoint: Player ${playerEntity.debugId} is on ${team} team (networked)`
+      );
+      return team;
+    } else {
+      console.log(
+        `❓ ControlPoint: Player ${playerEntity.debugId} has no team assignment yet - ignoring`
+      );
+      return null;
     }
-
-    const team = Math.abs(hash) % 2 === 0 ? Team.Red : Team.Blue;
-    console.log(
-      `🎭 ControlPoint: Assigned player ${debugId} to ${team} team (temp logic)`
-    );
-    return team;
   }
 
   private updateControlPointState() {

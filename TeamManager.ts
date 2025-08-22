@@ -7,10 +7,10 @@ import {
   OnPlayerCreateEventPayload,
   OnPlayerDestroyEvent,
   OnPlayerDestroyEventPayload,
-  EventService,
-  LocalEvent,
+  NetworkEvent,
   serializable,
   type IEntity,
+  Execution,
 } from "meta/platform_api@index";
 import { console } from "meta/scripting_jsi@native_objects/Console";
 
@@ -29,14 +29,15 @@ export enum Team {
 export class PlayerTeamAssignedPayload {
   public readonly playerEntity: IEntity | null = null;
   public readonly team: Team = Team.Red;
-  public readonly teamSize: number = 0;
+  public readonly redTeamCount: number = 0;
+  public readonly blueTeamCount: number = 0;
 }
 
 /**
- * Event fired when a player is assigned to a team
+ * NETWORK EVENT - Broadcasts team assignments to all clients
  */
-export const PlayerTeamAssignedEvent = new LocalEvent(
-  "PlayerTeamAssigned",
+export const PlayerTeamAssignedNetworkEvent = new NetworkEvent(
+  "PlayerTeamAssignedNetwork",
   PlayerTeamAssignedPayload
 );
 
@@ -47,14 +48,15 @@ export const PlayerTeamAssignedEvent = new LocalEvent(
 export class PlayerTeamRemovedPayload {
   public readonly playerEntity: IEntity | null = null;
   public readonly team: Team = Team.Red;
-  public readonly teamSize: number = 0;
+  public readonly redTeamCount: number = 0;
+  public readonly blueTeamCount: number = 0;
 }
 
 /**
- * Event fired when a player leaves a team
+ * NETWORK EVENT - Broadcasts team removals to all clients
  */
-export const PlayerTeamRemovedEvent = new LocalEvent(
-  "PlayerTeamRemoved",
+export const PlayerTeamRemovedNetworkEvent = new NetworkEvent(
+  "PlayerTeamRemovedNetwork",
   PlayerTeamRemovedPayload
 );
 
@@ -85,46 +87,60 @@ export class TeamManager extends Component {
   }
 
   /**
-   * Listen for player joining the world
+   * AUTHORITY ONLY - Listen for player joining the world
+   * Only the owner/server makes team assignment decisions
    */
-  @subscribe(OnPlayerCreateEvent)
+  @subscribe(OnPlayerCreateEvent, { execution: Execution.Owner })
   onPlayerJoined(event: OnPlayerCreateEventPayload) {
     if (!event.entity) {
       console.log("❌ TeamManager: Player joined but no entity provided");
       return;
     }
 
+    // Double-check we're the authority
+    if (!this.entity.isOwned()) {
+      console.log("⚠️ TeamManager: Not authority, ignoring player join");
+      return;
+    }
+
     const player = event.entity;
-    console.log(`👋 TeamManager: Player joined - Entity ID: ${player.debugId}`);
-
-    // Assign player to a team (with balancing)
-    const assignedTeam = this.assignPlayerToTeam(player);
-
     console.log(
-      `🎭 TeamManager: Player ${player.debugId} assigned to ${assignedTeam} team`
-    );
-    console.log(
-      `📊 TeamManager: Team counts - Red: ${TeamManager.redTeamCount}, Blue: ${TeamManager.blueTeamCount}`
+      `👋 TeamManager [AUTHORITY]: Player joined - Entity ID: ${player.debugId}`
     );
 
-    // Broadcast team assignment event
-    EventService.sendLocally(PlayerTeamAssignedEvent, {
+    // SERVER makes balanced team assignment decision
+    const assignedTeam = this.assignPlayerToTeamWithBalancing(player);
+
+    console.log(
+      `🎭 TeamManager [AUTHORITY]: Player ${player.debugId} assigned to ${assignedTeam} team`
+    );
+    console.log(
+      `📊 TeamManager [AUTHORITY]: Team counts - Red: ${TeamManager.redTeamCount}, Blue: ${TeamManager.blueTeamCount}`
+    );
+
+    // BROADCAST team assignment to ALL clients (including self)
+    this.entity.sendEventToEveryone(PlayerTeamAssignedNetworkEvent, {
       playerEntity: player,
       team: assignedTeam,
-      teamSize:
-        assignedTeam === Team.Red
-          ? TeamManager.redTeamCount
-          : TeamManager.blueTeamCount,
+      redTeamCount: TeamManager.redTeamCount,
+      blueTeamCount: TeamManager.blueTeamCount,
     });
   }
 
   /**
-   * Listen for player leaving the world
+   * AUTHORITY ONLY - Listen for player leaving the world
+   * Only the owner/server makes team removal decisions
    */
-  @subscribe(OnPlayerDestroyEvent)
+  @subscribe(OnPlayerDestroyEvent, { execution: Execution.Owner })
   onPlayerLeft(event: OnPlayerDestroyEventPayload) {
     if (!event.entity) {
       console.log("❌ TeamManager: Player left but no entity provided");
+      return;
+    }
+
+    // Double-check we're the authority
+    if (!this.entity.isOwned()) {
+      console.log("⚠️ TeamManager: Not authority, ignoring player leave");
       return;
     }
 
@@ -133,36 +149,86 @@ export class TeamManager extends Component {
 
     if (team) {
       console.log(
-        `👋 TeamManager: Player ${player.debugId} left from ${team} team`
+        `👋 TeamManager [AUTHORITY]: Player ${player.debugId} left from ${team} team`
       );
 
-      // Remove from team
-      this.removePlayerFromTeam(player);
+      // SERVER removes player from team
+      this.removePlayerFromTeamWithBalancing(player);
 
       console.log(
-        `📊 TeamManager: Team counts after leave - Red: ${TeamManager.redTeamCount}, Blue: ${TeamManager.blueTeamCount}`
+        `📊 TeamManager [AUTHORITY]: Team counts after leave - Red: ${TeamManager.redTeamCount}, Blue: ${TeamManager.blueTeamCount}`
       );
 
-      // Broadcast team removal event
-      EventService.sendLocally(PlayerTeamRemovedEvent, {
+      // BROADCAST team removal to ALL clients (including self)
+      this.entity.sendEventToEveryone(PlayerTeamRemovedNetworkEvent, {
         playerEntity: player,
         team: team,
-        teamSize:
-          team === Team.Red
-            ? TeamManager.redTeamCount
-            : TeamManager.blueTeamCount,
+        redTeamCount: TeamManager.redTeamCount,
+        blueTeamCount: TeamManager.blueTeamCount,
       });
     } else {
       console.log(
-        `❓ TeamManager: Player ${player.debugId} left but was not assigned to any team`
+        `❓ TeamManager [AUTHORITY]: Player ${player.debugId} left but was not assigned to any team`
       );
     }
   }
 
   /**
-   * Assign a player to a team with automatic balancing
+   * ALL CLIENTS - Receive team assignment from authority
+   * This runs on ALL clients when a player is assigned to a team
    */
-  private assignPlayerToTeam(player: IEntity): Team {
+  @subscribe(PlayerTeamAssignedNetworkEvent, {
+    execution: Execution.Everywhere,
+  })
+  onPlayerTeamAssigned(payload: PlayerTeamAssignedPayload) {
+    if (!payload.playerEntity) {
+      console.log("❌ TeamManager: Invalid player entity in team assignment");
+      return;
+    }
+
+    console.log(
+      `🌐 TeamManager [ALL CLIENTS]: Player ${payload.playerEntity.debugId} assigned to ${payload.team} team`
+    );
+
+    // Update local state on ALL clients
+    TeamManager.playerTeams.set(payload.playerEntity, payload.team);
+    TeamManager.redTeamCount = payload.redTeamCount;
+    TeamManager.blueTeamCount = payload.blueTeamCount;
+
+    console.log(
+      `📊 TeamManager [ALL CLIENTS]: Updated team counts - Red: ${TeamManager.redTeamCount}, Blue: ${TeamManager.blueTeamCount}`
+    );
+  }
+
+  /**
+   * ALL CLIENTS - Receive team removal from authority
+   * This runs on ALL clients when a player leaves a team
+   */
+  @subscribe(PlayerTeamRemovedNetworkEvent, { execution: Execution.Everywhere })
+  onPlayerTeamRemoved(payload: PlayerTeamRemovedPayload) {
+    if (!payload.playerEntity) {
+      console.log("❌ TeamManager: Invalid player entity in team removal");
+      return;
+    }
+
+    console.log(
+      `🌐 TeamManager [ALL CLIENTS]: Player ${payload.playerEntity.debugId} removed from ${payload.team} team`
+    );
+
+    // Update local state on ALL clients
+    TeamManager.playerTeams.delete(payload.playerEntity);
+    TeamManager.redTeamCount = payload.redTeamCount;
+    TeamManager.blueTeamCount = payload.blueTeamCount;
+
+    console.log(
+      `📊 TeamManager [ALL CLIENTS]: Updated team counts - Red: ${TeamManager.redTeamCount}, Blue: ${TeamManager.blueTeamCount}`
+    );
+  }
+
+  /**
+   * AUTHORITY ONLY - Assign a player to a team with automatic balancing
+   */
+  private assignPlayerToTeamWithBalancing(player: IEntity): Team {
     let assignedTeam: Team;
 
     // Assign to team with fewer players (balancing)
@@ -174,16 +240,16 @@ export class TeamManager extends Component {
       TeamManager.blueTeamCount++;
     }
 
-    // Store the assignment
+    // Store the assignment (authority only)
     TeamManager.playerTeams.set(player, assignedTeam);
 
     return assignedTeam;
   }
 
   /**
-   * Remove a player from their team
+   * AUTHORITY ONLY - Remove a player from their team with balancing update
    */
-  private removePlayerFromTeam(player: IEntity): void {
+  private removePlayerFromTeamWithBalancing(player: IEntity): void {
     const team = TeamManager.playerTeams.get(player);
 
     if (team === Team.Red) {
@@ -192,7 +258,7 @@ export class TeamManager extends Component {
       TeamManager.blueTeamCount = Math.max(0, TeamManager.blueTeamCount - 1);
     }
 
-    // Remove from registry
+    // Remove from registry (authority only)
     TeamManager.playerTeams.delete(player);
   }
 
