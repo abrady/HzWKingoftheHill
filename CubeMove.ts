@@ -9,7 +9,9 @@ import {
   TransformComponent,
   Vec3,
   property,
+  Color,
 } from "meta/platform_api@index";
+import { ColorComponent } from "meta/renderer";
 
 @component()
 export class CubeMove extends Component {
@@ -51,9 +53,12 @@ export class CubeMove extends Component {
     this.transform.worldPosition = currentPosition.add(
       direction.mul(moveDistance)
     );
-
     // Update currentTargetIndex when we reach the target
     if (this.transform.worldPosition.equalsApprox(targetPosition, 0.1)) {
+      const colorComponent = this.entity.getComponent(ColorComponent);
+      if (colorComponent) {
+        colorComponent.color = new Color(0, 255, 0);
+      }
       this.currentTargetIndex++;
       if (this.currentTargetIndex >= this.targetPositions.length) {
         this.currentTargetIndex = 0; // loop back to the first target

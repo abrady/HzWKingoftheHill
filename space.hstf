@@ -311,6 +311,56 @@
                 }
             ],
             "attributes": []
+        },
+        {
+            "id": "b13cb73d-18c4-4501-b130-b74c663171ac",
+            "name": "UIEntity",
+            "components": [
+                {
+                    "data": {
+                        "class": "horizon::platform_api::TransformPlatformComponent",
+                        "version": 2,
+                        "data": {
+                            "localPosition": {
+                                "x": 0.0,
+                                "y": 100.405517578125,
+                                "z": 0.0
+                            },
+                            "localRotation": {
+                                "x": -0.0,
+                                "y": 0.0,
+                                "z": 0.0
+                            },
+                            "localScale": {
+                                "x": 160.0,
+                                "y": 90.0,
+                                "z": 1.0
+                            }
+                        }
+                    },
+                    "dataType": "horizon::DataDefinitionAsset"
+                },
+                {
+                    "data": {
+                        "class": "horizon::platform_api::CustomUiPlatformComponent",
+                        "version": 11,
+                        "data": {
+                            "customUiType": "Screenspace",
+                            "xaml": {
+                                "packageOrRemoteId": "24424494143868339",
+                                "ingestionId": "12655322229352491765",
+                                "targetId": 2149638574
+                            },
+                            "width": 1600,
+                            "height": 900,
+                            "vrLayoutWidth": 1600,
+                            "vrLayoutHeight": 900
+                        }
+                    },
+                    "dataType": "horizon::DataDefinitionAsset"
+                }
+            ],
+            "attributes": []
         }
     ],
     "relationships": [
@@ -338,6 +388,11 @@
             "relationshipType": "RelationChildOf",
             "source": "036a253c-d600-49e2-8048-d57d4c33747d",
             "destination": "bf5a132a-2a8a-420d-8d35-e75b1ad890fd"
+        },
+        {
+            "relationshipType": "RelationChildOf",
+            "source": "b13cb73d-18c4-4501-b130-b74c663171ac",
+            "destination": "3c20ea8a-80a3-44c4-b582-6a2a16a943fd"
         }
     ]
 }
