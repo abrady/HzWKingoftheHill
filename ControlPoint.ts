@@ -9,7 +9,6 @@ import {
   type IEntity,
   Color,
   OnEntityStartEvent,
-  entityService,
 } from "meta/platform_api@index";
 import { console } from "meta/scripting_jsi@native_objects/Console";
 import {
@@ -21,6 +20,7 @@ import {
 import { PlayerComponent } from "meta/player@index";
 import { ColorComponent } from "meta/renderer@index";
 
+// Temporary team enum definition - will be moved to proper global system later
 enum Team {
   Red = "red",
   Blue = "blue",
@@ -69,14 +69,17 @@ export class ControlPoint extends Component {
       if (player) {
         // console.log("👤 ControlPoint: Player component found!");
 
-        // Determine player team (simple approach: use entity ID for demo)
+        // Get player team assignment
         const team = this.getPlayerTeam(event.actorEntity);
-        // console.log(`🎭 ControlPoint: Player assigned to team: ${team}`);
+
+        console.log(
+          `🎭 ControlPoint: Player ${event.actorEntity.debugId} from ${team} team entered`
+        );
 
         // Add player to appropriate team set
         if (team === Team.Red) {
           this.redPlayersInTrigger.add(event.actorEntity);
-        } else {
+        } else if (team === Team.Blue) {
           this.bluePlayersInTrigger.add(event.actorEntity);
         }
 
@@ -122,8 +125,8 @@ export class ControlPoint extends Component {
   }
 
   private getPlayerTeam(playerEntity: IEntity): Team {
-    // Simple team assignment based on debug ID hash (even = red, odd = blue)
-    // In a real game, this would come from a team management system
+    // Temporary simple team assignment based on entity debug ID hash
+    // This will be replaced with proper global team management once imports work
     const debugId = playerEntity.debugId;
 
     // Simple hash function to convert debugId string to number
@@ -133,6 +136,9 @@ export class ControlPoint extends Component {
     }
 
     const team = Math.abs(hash) % 2 === 0 ? Team.Red : Team.Blue;
+    console.log(
+      `🎭 ControlPoint: Assigned player ${debugId} to ${team} team (temp logic)`
+    );
     return team;
   }
 
@@ -167,7 +173,7 @@ export class ControlPoint extends Component {
 
   private updateUIScores() {
     // Update scores based on control point state
-    // TODO: Implement actual UI text component updates when WorldTextComponent import is available
+    // UI integration will be added when proper module imports are supported
     switch (this.currentState) {
       case ControlPointState.RedControlled:
         console.log("📊 ControlPoint: UI would show - Red: 1, Blue: 0");
@@ -181,6 +187,7 @@ export class ControlPoint extends Component {
         );
         break;
       case ControlPointState.Neutral:
+        // Keep current scores for neutral state - don't change UI
         console.log("📊 ControlPoint: UI unchanged - neutral state");
         break;
     }

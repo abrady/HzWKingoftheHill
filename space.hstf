@@ -373,6 +373,30 @@
                         "data": {}
                     },
                     "dataType": "horizon::DataDefinitionAsset"
+                },
+                {
+                    "data": {
+                        "class": "TeamManager",
+                        "definitionAsset": {
+                            "packageOrRemoteId": "24424494143868339",
+                            "ingestionId": "956191489785206833",
+                            "targetId": 4237980480
+                        },
+                        "data": {}
+                    },
+                    "dataType": "horizon::DataDefinitionAsset"
+                },
+                {
+                    "data": {
+                        "class": "GameManager",
+                        "definitionAsset": {
+                            "packageOrRemoteId": "24424494143868339",
+                            "ingestionId": "6189133434454134143",
+                            "targetId": 4237980480
+                        },
+                        "data": {}
+                    },
+                    "dataType": "horizon::DataDefinitionAsset"
                 }
             ],
             "attributes": []
