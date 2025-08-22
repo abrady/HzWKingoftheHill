@@ -5,10 +5,14 @@ import {
   subscribe,
   EventService,
   LocalEvent,
+  NetworkEvent,
   serializable,
   type IEntity,
   Color,
   OnEntityStartEvent,
+  OnPlayerCreateEvent,
+  OnPlayerCreateEventPayload,
+  Execution,
 } from "meta/platform_api@index";
 import { console } from "meta/scripting_jsi@native_objects/Console";
 import {
@@ -19,12 +23,7 @@ import {
 } from "meta/physics@index";
 import { PlayerComponent } from "meta/player@index";
 import { ColorComponent } from "meta/renderer@index";
-
-// Simple team enum for basic team assignment
-enum Team {
-  Red = "red",
-  Blue = "blue",
-}
+import { Team, TeamManager } from "./TeamManager";
 
 enum ControlPointState {
   Neutral = "neutral",
@@ -44,6 +43,26 @@ const PlayerTouchedControlPointEvent = new LocalEvent(
   PlayerTouchedControlPointPayload
 );
 
+/**
+ * Event payload for control point state changes
+ */
+@serializable()
+export class ControlPointStateChangedPayload {
+  public readonly controlPointEntity: IEntity | null = null;
+  public readonly newState: ControlPointState = ControlPointState.Neutral;
+  public readonly redPlayersCount: number = 0;
+  public readonly bluePlayersCount: number = 0;
+}
+
+/**
+ * NETWORK EVENT - Broadcasts control point state changes to all clients
+ * NOTE: Requires NetworkedEntityComponent on the entity using this event
+ */
+export const ControlPointStateChangedNetworkEvent = new NetworkEvent(
+  "ControlPointStateChangedNetwork",
+  ControlPointStateChangedPayload
+);
+
 @component()
 export class ControlPoint extends Component {
   private redPlayersInTrigger: Set<IEntity> = new Set();
@@ -53,98 +72,166 @@ export class ControlPoint extends Component {
   @subscribe(OnEntityStartEvent)
   onStart() {
     console.log(
-      "🎮 ControlPoint: Initializing control point with simple team assignment"
+      "🎮 ControlPoint: Initializing control point with networked team system"
     );
+    console.log(`🔍 ControlPoint: Entity is owned: ${this.entity.isOwned()}`);
+    console.log(`🔍 ControlPoint: Entity debugId: ${this.entity.debugId}`);
     this.updateControlPointColor();
     this.updateUIScores();
   }
 
-  @subscribe(OnTriggerEnterEvent)
+  /**
+   * AUTHORITY ONLY - Send current control point state to newly joined players
+   * This ensures late-joining players see the correct control point states
+   */
+  @subscribe(OnPlayerCreateEvent, { execution: Execution.Owner })
+  onPlayerJoined(event: OnPlayerCreateEventPayload) {
+    if (!event.entity) {
+      console.log("❌ ControlPoint: Player joined but no entity provided");
+      return;
+    }
+
+    // Double-check we're the authority
+    if (!this.entity.isOwned()) {
+      console.log("⚠️ ControlPoint: Not authority, ignoring player join");
+      return;
+    }
+
+    const player = event.entity;
+    console.log(
+      `👋 ControlPoint [AUTHORITY]: New player joined - ${player.debugId}, sending current state`
+    );
+
+    // If control point is not in neutral state, send current state to new player
+    if (this.currentState !== ControlPointState.Neutral) {
+      console.log(
+        `📡 ControlPoint [AUTHORITY]: Sending current state (${this.currentState}) to new player ${player.debugId}`
+      );
+
+      // Send current state to all clients (filtered by controlPointEntity in receiver)
+      this.entity.sendEventToEveryone(ControlPointStateChangedNetworkEvent, {
+        controlPointEntity: this.entity,
+        newState: this.currentState,
+        redPlayersCount: this.redPlayersInTrigger.size,
+        bluePlayersCount: this.bluePlayersInTrigger.size,
+      });
+
+      console.log(
+        `✅ ControlPoint [AUTHORITY]: Sent state sync to new player ${player.debugId}`
+      );
+    } else {
+      console.log(
+        `ℹ️ ControlPoint [AUTHORITY]: Control point is neutral, no state sync needed for ${player.debugId}`
+      );
+    }
+  }
+
+  /**
+   * AUTHORITY ONLY - Handle player entering trigger
+   * Only the owner/server makes control point state decisions
+   */
+  @subscribe(OnTriggerEnterEvent, { execution: Execution.Owner })
   onTriggerEnter(event: OnTriggerEnterPayload) {
-    console.log("🎯 ControlPoint: Trigger entered!", event);
+    if (!this.entity.isOwned()) {
+      console.log("⚠️ ControlPoint: Not authority, ignoring trigger enter");
+      return;
+    }
+
+    console.log("🎯 ControlPoint [AUTHORITY]: Trigger entered!", event);
 
     // Check if a player entity entered the trigger
     if (event.actorEntity) {
-      console.log("✅ ControlPoint: Actor entity found:", event.actorEntity);
+      console.log(
+        "✅ ControlPoint [AUTHORITY]: Actor entity found:",
+        event.actorEntity
+      );
 
       const player = event.actorEntity.getComponent(PlayerComponent);
       if (player) {
-        console.log("👤 ControlPoint: Player component found!");
+        console.log("👤 ControlPoint [AUTHORITY]: Player component found!");
 
-        // Get player team assignment using simple hash-based method
-        const team = this.getPlayerTeam(event.actorEntity);
+        // Get player team assignment from TeamManager (networked system)
+        const team = TeamManager.getPlayerTeam(event.actorEntity);
+
+        if (!team) {
+          console.log(
+            `❌ ControlPoint [AUTHORITY]: Player ${event.actorEntity.debugId} has no team assignment yet`
+          );
+          return;
+        }
 
         console.log(
-          `🎭 ControlPoint: Player ${event.actorEntity.debugId} from ${team} team entered`
+          `🎭 ControlPoint [AUTHORITY]: Player ${event.actorEntity.debugId} from ${team} team entered`
         );
 
-        // Add player to appropriate team set
+        // SERVER adds player to appropriate team set
         if (team === Team.Red) {
           this.redPlayersInTrigger.add(event.actorEntity);
         } else if (team === Team.Blue) {
           this.bluePlayersInTrigger.add(event.actorEntity);
         }
 
-        // Update control point state and color
-        this.updateControlPointState();
-        this.updateControlPointColor();
+        // SERVER calculates new control point state
+        this.updateControlPointStateAuthority();
 
-        // Notify GameManager
+        // Notify GameManager locally (for any server-side logic)
         EventService.sendLocally(PlayerTouchedControlPointEvent, {
           playerEntity: event.actorEntity,
           controlPointEntity: this.entity,
         });
 
-        console.log("📤 ControlPoint: PlayerTouchedControlPoint event sent");
+        console.log(
+          "📤 ControlPoint [AUTHORITY]: PlayerTouchedControlPoint event sent"
+        );
       } else {
-        console.log("❌ ControlPoint: No player component found on actor");
+        console.log(
+          "❌ ControlPoint [AUTHORITY]: No player component found on actor"
+        );
       }
     } else {
-      console.log("❌ ControlPoint: No actor entity in trigger event");
+      console.log(
+        "❌ ControlPoint [AUTHORITY]: No actor entity in trigger event"
+      );
     }
   }
 
-  @subscribe(OnTriggerExitEvent)
+  /**
+   * AUTHORITY ONLY - Handle player exiting trigger
+   * Only the owner/server makes control point state decisions
+   */
+  @subscribe(OnTriggerExitEvent, { execution: Execution.Owner })
   onTriggerExit(event: OnTriggerExitPayload) {
-    // console.log("🚪 ControlPoint: Trigger exited!", event);
+    if (!this.entity.isOwned()) {
+      console.log("⚠️ ControlPoint: Not authority, ignoring trigger exit");
+      return;
+    }
+
+    console.log("🚪 ControlPoint [AUTHORITY]: Trigger exited!", event);
 
     if (event.actorEntity) {
       const player = event.actorEntity.getComponent(PlayerComponent);
       if (player) {
-        // console.log("👤 ControlPoint: Player exiting trigger");
+        console.log("👤 ControlPoint [AUTHORITY]: Player exiting trigger");
 
-        // Remove player from both team sets
+        // SERVER removes player from both team sets
         this.redPlayersInTrigger.delete(event.actorEntity);
         this.bluePlayersInTrigger.delete(event.actorEntity);
 
-        // Update control point state and color
-        this.updateControlPointState();
-        this.updateControlPointColor();
+        // SERVER calculates new control point state
+        this.updateControlPointStateAuthority();
 
-        // console.log(`📊 ControlPoint: Updated state to ${this.currentState}`);
+        console.log(
+          `📊 ControlPoint [AUTHORITY]: Updated state to ${this.currentState}`
+        );
       }
     }
   }
 
-  private getPlayerTeam(playerEntity: IEntity): Team {
-    // Simple team assignment based on entity debug ID hash
-    // This provides consistent team assignment across all clients
-    const debugId = playerEntity.debugId;
-
-    // Simple hash function to convert debugId string to number
-    let hash = 0;
-    for (let i = 0; i < debugId.length; i++) {
-      hash = ((hash << 5) - hash + debugId.charCodeAt(i)) & 0xffffffff;
-    }
-
-    const team = Math.abs(hash) % 2 === 0 ? Team.Red : Team.Blue;
-    console.log(
-      `🎭 ControlPoint: Player ${debugId} assigned to ${team} team (hash-based)`
-    );
-    return team;
-  }
-
-  private updateControlPointState() {
+  /**
+   * AUTHORITY ONLY - Calculate and broadcast control point state changes
+   * Only the server makes state decisions and broadcasts them to all clients
+   */
+  private updateControlPointStateAuthority() {
     const hasRedPlayers = this.redPlayersInTrigger.size > 0;
     const hasBluePlayers = this.bluePlayersInTrigger.size > 0;
 
@@ -156,18 +243,55 @@ export class ControlPoint extends Component {
     } else if (hasBluePlayers) {
       newControlPointState = ControlPointState.BlueControlled;
     } else {
-      // FIX: When no players are present, go to neutral state
       newControlPointState = ControlPointState.Neutral;
     }
 
+    // Only broadcast if state actually changed
     if (newControlPointState === this.currentState) {
       return;
     }
+
     this.currentState = newControlPointState;
 
     console.log(
-      `📊 ControlPoint: State updated to ${this.currentState} (Red: ${this.redPlayersInTrigger.size}, Blue: ${this.bluePlayersInTrigger.size})`
+      `📊 ControlPoint [AUTHORITY]: State updated to ${this.currentState} (Red: ${this.redPlayersInTrigger.size}, Blue: ${this.bluePlayersInTrigger.size})`
     );
+
+    // BROADCAST state change to ALL clients (including self)
+    this.entity.sendEventToEveryone(ControlPointStateChangedNetworkEvent, {
+      controlPointEntity: this.entity,
+      newState: this.currentState,
+      redPlayersCount: this.redPlayersInTrigger.size,
+      bluePlayersCount: this.bluePlayersInTrigger.size,
+    });
+
+    console.log(
+      `🌐 ControlPoint [AUTHORITY]: Broadcasted state change to all clients`
+    );
+  }
+
+  /**
+   * ALL CLIENTS - Receive control point state changes from authority
+   * This runs on ALL clients when control point state changes
+   */
+  @subscribe(ControlPointStateChangedNetworkEvent, {
+    execution: Execution.Everywhere,
+  })
+  onControlPointStateChanged(payload: ControlPointStateChangedPayload) {
+    // Only process if this is the correct control point
+    if (payload.controlPointEntity !== this.entity) {
+      return;
+    }
+
+    console.log(
+      `🌐 ControlPoint [ALL CLIENTS]: Received state change to ${payload.newState} (Red: ${payload.redPlayersCount}, Blue: ${payload.bluePlayersCount})`
+    );
+
+    // Update local state on ALL clients
+    this.currentState = payload.newState;
+
+    // Update visual representation
+    this.updateControlPointColor();
 
     // Update UI scores based on new state
     this.updateUIScores();

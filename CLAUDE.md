@@ -314,6 +314,128 @@ onPlayerInput(event: OnPlayerInputEventPayload) {
 9. **Type Safety**: Leverage TypeScript's type system and Maybe<> for safe component access
 10. **Service Architecture**: Use singleton services for global functionality
 
+## Networking Architecture Analysis
+
+### 1. New Player Joins (Team Assignment)
+
+**Current Implementation (TeamManager.ts):**
+
+- ✅ **Authority-Based**: Only the entity owner (server) makes team assignment decisions using `{execution: Execution.Owner}`
+- ✅ **Balanced Assignment**: Server assigns players to teams based on current team counts for balance
+- ✅ **Network Replication**: Team assignments are broadcast to all clients using `PlayerTeamAssignedNetworkEvent`
+- ✅ **State Synchronization**: All clients update their local team state when receiving network events
+
+**Flow:**
+
+1. Player joins → `OnPlayerCreateEvent` fires on authority/server only
+2. Server calculates balanced team assignment (Red vs Blue based on current counts)
+3. Server broadcasts `PlayerTeamAssignedNetworkEvent` to all clients
+4. All clients receive event and update their local team maps and counts
+5. Network event includes: player entity, assigned team, updated team counts
+
+### 2. ControlPoint State Replication
+
+**Current Issues (ControlPoint.ts):**
+
+- ❌ **No Networking**: Control point state changes are purely local
+- ❌ **Inconsistent Team Assignment**: Uses hash-based team assignment instead of TeamManager
+- ❌ **Desync Risk**: Each client calculates control point state independently
+
+**Current Flow (Problematic):**
+
+1. Player enters trigger → Only local client sees the change
+2. Local hash-based team assignment (inconsistent across clients)
+3. Local control point state update (not synchronized)
+4. Local color change (visual desync possible)
+
+**Required Fix:**
+
+- Control points should use TeamManager for team assignments
+- Control point state changes should be networked
+- Authority should determine control point state and broadcast to all clients
+
+### 3. UI Updates from ControlPoint
+
+**Current Implementation (ScoreUIController.ts):**
+
+- ✅ **Centralized UI Management**: Single component handles all score display logic
+- ❌ **No Network Integration**: UI controller doesn't receive network events
+- ❌ **No ControlPoint Integration**: No communication between ControlPoint and UI
+
+**Current Flow (Limited):**
+
+1. ScoreUIController initializes with default scores (0,0)
+2. Manual score updates through public methods
+3. UI display updates (currently console logs only)
+
+**Missing Integration:**
+
+- ControlPoint should send events to UI when state changes
+- UI should respond to networked game state changes
+- Score accumulation logic needs implementation
+
+### Network Event Patterns
+
+**Proper Authority-Based Networking:**
+
+```typescript
+// AUTHORITY ONLY - Server makes decisions
+@subscribe(OnSomeEvent, { execution: Execution.Owner })
+onAuthorityEvent(event: SomeEventPayload) {
+  if (!this.entity.isOwned()) return; // Double-check authority
+
+  // Server logic here
+  const decision = this.makeServerDecision();
+
+  // Broadcast to all clients
+  this.entity.sendEventToEveryone(SomeNetworkEvent, {
+    decision: decision,
+    timestamp: Date.now()
+  });
+}
+
+// ALL CLIENTS - Receive and apply server decisions
+@subscribe(SomeNetworkEvent, { execution: Execution.Everywhere })
+onNetworkEvent(payload: SomeNetworkPayload) {
+  // All clients update local state
+  this.applyServerDecision(payload.decision);
+}
+```
+
+**Network Event Requirements:**
+
+```typescript
+@serializable()
+export class NetworkEventPayload {
+  public readonly data: any = null; // Must be serializable
+  public readonly timestamp: number = 0;
+}
+
+export const SomeNetworkEvent = new NetworkEvent(
+  "SomeNetworkEventName",
+  NetworkEventPayload
+);
+```
+
+### Critical Networking Issues to Fix
+
+1. **ControlPoint Networking**:
+
+   - Replace hash-based team assignment with TeamManager integration
+   - Add authority-based control point state management
+   - Network control point state changes to all clients
+
+2. **UI Integration**:
+
+   - Connect ControlPoint events to ScoreUIController
+   - Add networked score update events
+   - Implement proper score accumulation logic
+
+3. **State Consistency**:
+   - Ensure all game state changes are authority-driven
+   - Use network events for cross-client communication
+   - Implement proper client state synchronization
+
 ## Common Code Patterns
 
 ### Creating Custom Events
