@@ -9,6 +9,7 @@ import {
   type IEntity,
   Color,
   OnEntityStartEvent,
+  entityService,
 } from "meta/platform_api@index";
 import { console } from "meta/scripting_jsi@native_objects/Console";
 import {
@@ -53,6 +54,7 @@ export class ControlPoint extends Component {
   onStart() {
     // console.log("🎮 ControlPoint: Initializing control point");
     this.updateControlPointColor();
+    this.updateUIScores();
   }
 
   @subscribe(OnTriggerEnterEvent)
@@ -158,6 +160,30 @@ export class ControlPoint extends Component {
     console.log(
       `ControlPoint: State updated to ${this.currentState} (Red: ${this.redPlayersInTrigger.size}, Blue: ${this.bluePlayersInTrigger.size})`
     );
+
+    // Update UI scores based on new state
+    this.updateUIScores();
+  }
+
+  private updateUIScores() {
+    // Update scores based on control point state
+    // TODO: Implement actual UI text component updates when WorldTextComponent import is available
+    switch (this.currentState) {
+      case ControlPointState.RedControlled:
+        console.log("📊 ControlPoint: UI would show - Red: 1, Blue: 0");
+        break;
+      case ControlPointState.BlueControlled:
+        console.log("📊 ControlPoint: UI would show - Red: 0, Blue: 1");
+        break;
+      case ControlPointState.Contested:
+        console.log(
+          "📊 ControlPoint: UI would show - Red: 0, Blue: 0 (contested)"
+        );
+        break;
+      case ControlPointState.Neutral:
+        console.log("📊 ControlPoint: UI unchanged - neutral state");
+        break;
+    }
   }
 
   private updateControlPointColor() {
