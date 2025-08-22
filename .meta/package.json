@@ -1,0 +1,49 @@
+{
+    "id": "24424494143868339",
+    "author": "meta",
+    "name": "HelloWorld",
+    "dependencies": [
+        {
+            "path": "{fbsource}/arvr/assets/hsr_packages/worlds/starting_world"
+        },
+        {
+            "path": "{fbsource}/arvr/assets/hsr_packages/primitives"
+        },
+        {
+            "path": "{fbsource}/arvr/projects/hsr/frameworks/platform_api/assets/scripts"
+        },
+        {
+            "path": "{fbsource}/arvr/projects/hsr/frameworks/animation/assets/scripts"
+        },
+        {
+            "path": "{fbsource}/arvr/projects/hsr/frameworks/audio/assets/scripts"
+        },
+        {
+            "path": "{fbsource}/arvr/projects/hsr/frameworks/avatar/assets/scripts"
+        },
+        {
+            "path": "{fbsource}/arvr/projects/hsr/frameworks/gameplay/assets/scripts"
+        },
+        {
+            "path": "{fbsource}/arvr/projects/hsr/frameworks/physics/assets/scripts"
+        },
+        {
+            "path": "{fbsource}/arvr/projects/hsr/frameworks/player/assets/scripts"
+        },
+        {
+            "path": "{fbsource}/arvr/projects/hsr/frameworks/player_grabbing/assets/scripts"
+        },
+        {
+            "path": "{fbsource}/arvr/projects/hsr/frameworks/renderer/assets/scripts"
+        },
+        {
+            "path": "{fbsource}/arvr/apps/worlds/libraries/worlds_app/assets"
+        },
+        {
+            "path": "{fbsource}/arvr/apps/worlds/frameworks/custom_ui/assets/scripts"
+        },
+        {
+            "path": "{fbsource}/arvr/projects/hsr/modules/vfx_popcornfx/assets"
+        }
+    ]
+}
