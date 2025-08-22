@@ -323,7 +323,7 @@
                         "data": {
                             "localPosition": {
                                 "x": 0.0,
-                                "y": 100.405517578125,
+                                "y": 0.0,
                                 "z": 0.0
                             },
                             "localRotation": {
@@ -332,8 +332,8 @@
                                 "z": 0.0
                             },
                             "localScale": {
-                                "x": 160.0,
-                                "y": 90.0,
+                                "x": 1.0,
+                                "y": 1.0,
                                 "z": 1.0
                             }
                         }
@@ -351,11 +351,184 @@
                                 "ingestionId": "12655322229352491765",
                                 "targetId": 2149638574
                             },
-                            "width": 1600,
-                            "height": 900,
-                            "vrLayoutWidth": 1600,
-                            "vrLayoutHeight": 900
+                            "width": 1920,
+                            "height": 1080,
+                            "vrLayoutWidth": 1920,
+                            "vrLayoutHeight": 1080
                         }
+                    },
+                    "dataType": "horizon::DataDefinitionAsset"
+                }
+            ],
+            "attributes": []
+        },
+        {
+            "id": "89d1e71c-941e-45a5-a19b-836e386eb0c8",
+            "name": "GameManager",
+            "components": [
+                {
+                    "data": {
+                        "class": "horizon::platform_api::TransformPlatformComponent",
+                        "version": 2,
+                        "data": {}
+                    },
+                    "dataType": "horizon::DataDefinitionAsset"
+                }
+            ],
+            "attributes": []
+        },
+        {
+            "id": "48ea49a3-ccda-4d6b-84b8-641c89d2bb80",
+            "name": "ControlPoint",
+            "components": [
+                {
+                    "data": {
+                        "class": "horizon::platform_api::TransformPlatformComponent",
+                        "version": 2,
+                        "data": {
+                            "localPosition": {
+                                "x": 0.0,
+                                "y": 0.09524509310722351,
+                                "z": 6.3057732582092289
+                            },
+                            "localRotation": {
+                                "x": -0.0,
+                                "y": 0.0,
+                                "z": 0.0
+                            },
+                            "localScale": {
+                                "x": 3.0,
+                                "y": 3.0,
+                                "z": 3.0
+                            }
+                        }
+                    },
+                    "dataType": "horizon::DataDefinitionAsset"
+                },
+                {
+                    "data": {
+                        "class": "horizon::platform_api::MeshPlatformComponent",
+                        "version": 10,
+                        "data": {
+                            "mesh": {
+                                "packageOrRemoteId": "17773714819016965008",
+                                "ingestionId": "4786304079839798385",
+                                "targetId": 2514290551
+                            }
+                        }
+                    },
+                    "dataType": "horizon::DataDefinitionAsset"
+                },
+                {
+                    "data": {
+                        "class": "horizon::platform_api::ColliderMeshPlatformComponent",
+                        "version": 1,
+                        "data": {
+                            "meshAsset": {
+                                "packageOrRemoteId": "17773714819016965008",
+                                "ingestionId": "4786304079839798385",
+                                "targetId": 4272517333
+                            }
+                        }
+                    },
+                    "dataType": "horizon::DataDefinitionAsset"
+                },
+                {
+                    "data": {
+                        "class": "horizon::platform_api::PhysicsBodyPlatformComponent",
+                        "version": 2,
+                        "data": {
+                            "type": "StaticCollision"
+                        }
+                    },
+                    "dataType": "horizon::DataDefinitionAsset"
+                },
+                {
+                    "data": {
+                        "class": "horizon::platform_api::ColorPlatformComponent",
+                        "version": 2,
+                        "data": {
+                            "color": {
+                                "r": 1.0,
+                                "g": 1.0,
+                                "b": 1.0,
+                                "a": 1.0
+                            }
+                        }
+                    },
+                    "dataType": "horizon::DataDefinitionAsset"
+                }
+            ],
+            "attributes": []
+        },
+        {
+            "id": "1321091d-6952-4a01-ae7e-9a038d452d5d",
+            "name": "Trigger",
+            "components": [
+                {
+                    "data": {
+                        "class": "horizon::platform_api::TransformPlatformComponent",
+                        "version": 2,
+                        "data": {
+                            "localPosition": {
+                                "x": 0.061605896800756457,
+                                "y": 0.16181035339832307,
+                                "z": 0.06988048553466797
+                            },
+                            "localRotation": {
+                                "x": -0.0,
+                                "y": 0.0,
+                                "z": 0.0
+                            },
+                            "localScale": {
+                                "x": 1.0,
+                                "y": 1.0,
+                                "z": 1.0
+                            }
+                        }
+                    },
+                    "dataType": "horizon::DataDefinitionAsset"
+                },
+                {
+                    "data": {
+                        "class": "horizon::platform_api::ColliderBoxPlatformComponent",
+                        "version": 1,
+                        "data": {
+                            "halfExtents": {
+                                "x": 1.5,
+                                "y": 1.5,
+                                "z": 1.5
+                            }
+                        }
+                    },
+                    "dataType": "horizon::DataDefinitionAsset"
+                },
+                {
+                    "data": {
+                        "class": "horizon::platform_api::PhysicsBodyPlatformComponent",
+                        "version": 2,
+                        "data": {
+                            "type": "Trigger",
+                            "collisionEnabled": true,
+                            "debugDrawColor": {
+                                "r": 0.5215686559677124,
+                                "g": 1.0,
+                                "b": 0.0,
+                                "a": 0.0
+                            }
+                        }
+                    },
+                    "dataType": "horizon::DataDefinitionAsset"
+                },
+                {
+                    "data": {
+                        "class": "ControlPoint",
+                        "definitionAsset": {
+                            "packageOrRemoteId": "24424494143868339",
+                            "ingestionId": "9209085172455940992",
+                            "targetId": 4237980480
+                        },
+                        "data": {}
                     },
                     "dataType": "horizon::DataDefinitionAsset"
                 }
@@ -393,6 +566,21 @@
             "relationshipType": "RelationChildOf",
             "source": "b13cb73d-18c4-4501-b130-b74c663171ac",
             "destination": "3c20ea8a-80a3-44c4-b582-6a2a16a943fd"
+        },
+        {
+            "relationshipType": "RelationChildOf",
+            "source": "89d1e71c-941e-45a5-a19b-836e386eb0c8",
+            "destination": "3c20ea8a-80a3-44c4-b582-6a2a16a943fd"
+        },
+        {
+            "relationshipType": "RelationChildOf",
+            "source": "48ea49a3-ccda-4d6b-84b8-641c89d2bb80",
+            "destination": "3c20ea8a-80a3-44c4-b582-6a2a16a943fd"
+        },
+        {
+            "relationshipType": "RelationChildOf",
+            "source": "1321091d-6952-4a01-ae7e-9a038d452d5d",
+            "destination": "48ea49a3-ccda-4d6b-84b8-641c89d2bb80"
         }
     ]
 }
