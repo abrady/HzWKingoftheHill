@@ -6,8 +6,15 @@ import {
   OnEntityStartEvent,
   property,
   type IEntity,
+  Execution,
 } from "meta/platform_api@index";
 import { console } from "meta/scripting_jsi@native_objects/Console";
+import {
+  Team,
+  TeamManager,
+  TeamAssignmentNetworkEvent,
+  TeamAssignmentPayload,
+} from "./TeamManager";
 
 /**
  * UI Controller component that manages the score display in the XAML UI.
@@ -32,12 +39,80 @@ export class ScoreUIController extends Component {
   }
 
   /**
+   * ALL CLIENTS - Listen for complete team assignment updates and update "YOU" indicator
+   * Note: Simplified version that logs team assignments. In a full implementation,
+   * this would detect if the local player is in the team lists.
+   */
+  @subscribe(TeamAssignmentNetworkEvent, {
+    execution: Execution.Everywhere,
+  })
+  onTeamAssignmentUpdate(payload: TeamAssignmentPayload) {
+    console.log(
+      `👤 ScoreUIController: Received team assignment update - Red: ${payload.redTeamPlayers.length}, Blue: ${payload.blueTeamPlayers.length}`
+    );
+
+    // TODO: In a full implementation, check if the local player's debugId
+    // is in either payload.redTeamPlayers or payload.blueTeamPlayers arrays
+    // and call this.updateTeamIndicator(team) accordingly
+
+    // Example of how this would work:
+    // const localPlayerDebugId = getLocalPlayerDebugId(); // This API doesn't exist yet
+    // if (payload.redTeamPlayers.includes(localPlayerDebugId)) {
+    //   this.updateTeamIndicator(Team.Red);
+    // } else if (payload.blueTeamPlayers.includes(localPlayerDebugId)) {
+    //   this.updateTeamIndicator(Team.Blue);
+    // }
+
+    // For now, this demonstrates the complete team assignment logging
+    // The UI framework will need proper local player detection
+  }
+
+  /**
    * Initialize the UI by setting default values
    */
   private initializeUI() {
     this.updateRedScore(0);
     this.updateBlueScore(0);
+
     console.log("📊 ScoreUIController: UI initialized with default scores");
+
+    // TODO: Add local player team detection when proper API is available
+    // This would check existing team assignments and show "YOU" indicator
+  }
+
+  /**
+   * Public method to manually set team indicator (for testing or external control)
+   * @param team - The team to show the "YOU" indicator for
+   */
+  public setPlayerTeam(team: Team) {
+    console.log(
+      `👤 ScoreUIController: Manually setting player team to ${team}`
+    );
+    this.updateTeamIndicator(team);
+  }
+
+  /**
+   * Update the "YOU" indicator to show which team the player is on
+   */
+  private updateTeamIndicator(team: Team) {
+    // For now, log what the UI would show
+    // In a future update, this would find the XAML elements and update their Visibility
+
+    if (team === Team.Red) {
+      console.log("🔴 ScoreUIController: Showing 'YOU' under Red Team");
+      // Future implementation:
+      // const redYouElement = this.findUIElement("RedTeamYouText");
+      // const blueYouElement = this.findUIElement("BlueTeamYouText");
+      // if (redYouElement) redYouElement.Visibility = "Visible";
+      // if (blueYouElement) blueYouElement.Visibility = "Collapsed";
+    } else if (team === Team.Blue) {
+      console.log("🔵 ScoreUIController: Showing 'YOU' under Blue Team");
+      // Future implementation:
+      // const redYouElement = this.findUIElement("RedTeamYouText");
+      // const blueYouElement = this.findUIElement("BlueTeamYouText");
+      // if (redYouElement) redYouElement.Visibility = "Collapsed";
+      // if (blueYouElement) blueYouElement.Visibility = "Visible";
+    }
   }
 
   /**
@@ -107,13 +182,6 @@ export class ScoreUIController extends Component {
     // if (blueScoreElement) blueScoreElement.Text = this.blueScoreValue.toString();
   }
 
-  /**
-   * Helper method to find UI elements by name (placeholder for future implementation)
-   * @param elementName - The x:Name of the XAML element
-   */
-  private findUIElement(elementName: string): any {
-    // Placeholder - would implement XAML element lookup here
-    console.log(`🔍 ScoreUIController: Looking for UI element: ${elementName}`);
-    return null;
-  }
+  // Note: findUIElement method will be implemented when XAML binding is available
+  // private findUIElement(elementName: string): any { ... }
 }

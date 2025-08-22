@@ -35,6 +35,13 @@
                  Foreground="Red"
                  FontWeight="Bold"
                  HorizontalAlignment="Center"/>
+      <TextBlock x:Name="RedTeamYouText"
+                 Text="YOU"
+                 FontSize="32"
+                 Foreground="Red"
+                 FontWeight="Bold"
+                 HorizontalAlignment="Center"
+                 Visibility="Collapsed"/>
     </StackPanel>
 
     <!-- Time Left Display (centered between scores) -->
@@ -71,5 +78,12 @@
                  Foreground="Blue"
                  FontWeight="Bold"
                  HorizontalAlignment="Center"/>
+      <TextBlock x:Name="BlueTeamYouText"
+                 Text="YOU"
+                 FontSize="32"
+                 Foreground="Blue"
+                 FontWeight="Bold"
+                 HorizontalAlignment="Center"
+                 Visibility="Collapsed"/>
     </StackPanel>
   </Grid>

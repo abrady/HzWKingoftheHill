@@ -23,43 +23,24 @@ export enum Team {
 }
 
 /**
- * Event payload for when a player is assigned to a team
+ * Event payload containing complete team makeup
+ * Recipients can use their own entity debugId to determine which team they belong to
  */
 @serializable()
-export class PlayerTeamAssignedPayload {
-  public readonly playerEntity: IEntity | null = null;
-  public readonly team: Team = Team.Red;
+export class TeamAssignmentPayload {
+  public readonly redTeamPlayers: readonly string[] = [];
+  public readonly blueTeamPlayers: readonly string[] = [];
   public readonly redTeamCount: number = 0;
   public readonly blueTeamCount: number = 0;
 }
 
 /**
- * NETWORK EVENT - Broadcasts team assignments to all clients
+ * NETWORK EVENT - Broadcasts complete team assignments to all clients
  * NOTE: Requires NetworkedEntityComponent on the entity using this event
  */
-export const PlayerTeamAssignedNetworkEvent = new NetworkEvent(
-  "PlayerTeamAssignedNetwork",
-  PlayerTeamAssignedPayload
-);
-
-/**
- * Event payload for when a player leaves a team
- */
-@serializable()
-export class PlayerTeamRemovedPayload {
-  public readonly playerEntity: IEntity | null = null;
-  public readonly team: Team = Team.Red;
-  public readonly redTeamCount: number = 0;
-  public readonly blueTeamCount: number = 0;
-}
-
-/**
- * NETWORK EVENT - Broadcasts team removals to all clients
- * NOTE: Requires NetworkedEntityComponent on the entity using this event
- */
-export const PlayerTeamRemovedNetworkEvent = new NetworkEvent(
-  "PlayerTeamRemovedNetwork",
-  PlayerTeamRemovedPayload
+export const TeamAssignmentNetworkEvent = new NetworkEvent(
+  "TeamAssignmentNetwork",
+  TeamAssignmentPayload
 );
 
 /**
@@ -122,13 +103,8 @@ export class TeamManager extends Component {
       `📊 TeamManager [AUTHORITY]: Team counts - Red: ${TeamManager.redTeamCount}, Blue: ${TeamManager.blueTeamCount}`
     );
 
-    // BROADCAST team assignment to ALL clients (including self)
-    this.entity.sendEventToEveryone(PlayerTeamAssignedNetworkEvent, {
-      playerEntity: player,
-      team: assignedTeam,
-      redTeamCount: TeamManager.redTeamCount,
-      blueTeamCount: TeamManager.blueTeamCount,
-    });
+    // BROADCAST complete team assignment to ALL clients (including self)
+    this.broadcastCompleteTeamAssignment();
   }
 
   /**
@@ -163,13 +139,8 @@ export class TeamManager extends Component {
         `📊 TeamManager [AUTHORITY]: Team counts after leave - Red: ${TeamManager.redTeamCount}, Blue: ${TeamManager.blueTeamCount}`
       );
 
-      // BROADCAST team removal to ALL clients (including self)
-      this.entity.sendEventToEveryone(PlayerTeamRemovedNetworkEvent, {
-        playerEntity: player,
-        team: team,
-        redTeamCount: TeamManager.redTeamCount,
-        blueTeamCount: TeamManager.blueTeamCount,
-      });
+      // BROADCAST complete team assignment to ALL clients (including self)
+      this.broadcastCompleteTeamAssignment();
     } else {
       console.log(
         `❓ TeamManager [AUTHORITY]: Player ${player.debugId} left but was not assigned to any team`
@@ -178,54 +149,44 @@ export class TeamManager extends Component {
   }
 
   /**
-   * ALL CLIENTS - Receive team assignment from authority
-   * This runs on ALL clients when a player is assigned to a team
+   * ALL CLIENTS - Receive complete team assignment update from authority
+   * This runs on ALL clients when team assignments change
+   * Recipients can use their own EntityId to determine which team they belong to
    */
-  @subscribe(PlayerTeamAssignedNetworkEvent, {
-    execution: Execution.Everywhere,
-  })
-  onPlayerTeamAssigned(payload: PlayerTeamAssignedPayload) {
-    if (!payload.playerEntity) {
-      console.log("❌ TeamManager: Invalid player entity in team assignment");
-      return;
-    }
-
+  @subscribe(TeamAssignmentNetworkEvent, { execution: Execution.Everywhere })
+  onTeamAssignmentUpdate(payload: TeamAssignmentPayload) {
     console.log(
-      `🌐 TeamManager [ALL CLIENTS]: Player ${payload.playerEntity.debugId} assigned to ${payload.team} team`
+      `🌐 TeamManager [ALL CLIENTS]: Received complete team assignment update`
     );
 
-    // Update local state on ALL clients
-    TeamManager.playerTeams.set(payload.playerEntity, payload.team);
+    // Clear and rebuild team assignments from complete team lists
+    TeamManager.playerTeams.clear();
+
+    // Rebuild red team assignments
+    for (const playerId of payload.redTeamPlayers) {
+      const playerEntity = this.getEntityById(playerId);
+      if (playerEntity) {
+        TeamManager.playerTeams.set(playerEntity, Team.Red);
+      }
+    }
+
+    // Rebuild blue team assignments
+    for (const playerId of payload.blueTeamPlayers) {
+      const playerEntity = this.getEntityById(playerId);
+      if (playerEntity) {
+        TeamManager.playerTeams.set(playerEntity, Team.Blue);
+      }
+    }
+
+    // Update team counts
     TeamManager.redTeamCount = payload.redTeamCount;
     TeamManager.blueTeamCount = payload.blueTeamCount;
 
     console.log(
       `📊 TeamManager [ALL CLIENTS]: Updated team counts - Red: ${TeamManager.redTeamCount}, Blue: ${TeamManager.blueTeamCount}`
     );
-  }
-
-  /**
-   * ALL CLIENTS - Receive team removal from authority
-   * This runs on ALL clients when a player leaves a team
-   */
-  @subscribe(PlayerTeamRemovedNetworkEvent, { execution: Execution.Everywhere })
-  onPlayerTeamRemoved(payload: PlayerTeamRemovedPayload) {
-    if (!payload.playerEntity) {
-      console.log("❌ TeamManager: Invalid player entity in team removal");
-      return;
-    }
-
     console.log(
-      `🌐 TeamManager [ALL CLIENTS]: Player ${payload.playerEntity.debugId} removed from ${payload.team} team`
-    );
-
-    // Update local state on ALL clients
-    TeamManager.playerTeams.delete(payload.playerEntity);
-    TeamManager.redTeamCount = payload.redTeamCount;
-    TeamManager.blueTeamCount = payload.blueTeamCount;
-
-    console.log(
-      `📊 TeamManager [ALL CLIENTS]: Updated team counts - Red: ${TeamManager.redTeamCount}, Blue: ${TeamManager.blueTeamCount}`
+      `🎭 TeamManager [ALL CLIENTS]: Red team has ${payload.redTeamPlayers.length} players, Blue team has ${payload.blueTeamPlayers.length} players`
     );
   }
 
@@ -264,6 +225,50 @@ export class TeamManager extends Component {
 
     // Remove from registry (authority only)
     TeamManager.playerTeams.delete(player);
+  }
+
+  /**
+   * AUTHORITY ONLY - Broadcast complete team assignment to all clients
+   */
+  private broadcastCompleteTeamAssignment(): void {
+    const redTeamPlayers: string[] = [];
+    const blueTeamPlayers: string[] = [];
+
+    // Build complete team lists with debugIds
+    for (const [player, team] of TeamManager.playerTeams.entries()) {
+      const debugId = player.debugId;
+      if (team === Team.Red) {
+        redTeamPlayers.push(debugId);
+      } else if (team === Team.Blue) {
+        blueTeamPlayers.push(debugId);
+      }
+    }
+
+    console.log(
+      `📡 TeamManager [AUTHORITY]: Broadcasting complete team assignment - Red: ${redTeamPlayers.length}, Blue: ${blueTeamPlayers.length}`
+    );
+
+    // Send complete team assignment to ALL clients
+    this.entity.sendEventToEveryone(TeamAssignmentNetworkEvent, {
+      redTeamPlayers: redTeamPlayers,
+      blueTeamPlayers: blueTeamPlayers,
+      redTeamCount: TeamManager.redTeamCount,
+      blueTeamCount: TeamManager.blueTeamCount,
+    });
+  }
+
+  /**
+   * Get IEntity from debugId
+   * This is a simplified implementation - in practice, you might need a more robust entity lookup
+   */
+  private getEntityById(debugId: string): IEntity | null {
+    // Look through current player assignments to find matching entity
+    for (const player of TeamManager.playerTeams.keys()) {
+      if (player.debugId === debugId) {
+        return player;
+      }
+    }
+    return null;
   }
 
   /**
@@ -308,6 +313,20 @@ export class TeamManager extends Component {
   }
 
   /**
+   * Get a player's team assignment by debugId
+   * Useful for recipients to check which team they belong to using their own entity debugId
+   */
+  public static getPlayerTeamByDebugId(debugId: string): Team | null {
+    // Find the player entity with the matching debugId
+    for (const [player, team] of TeamManager.playerTeams.entries()) {
+      if (player.debugId === debugId) {
+        return team;
+      }
+    }
+    return null;
+  }
+
+  /**
    * Manual team assignment (for admin/debug purposes)
    */
   public static assignPlayerToSpecificTeam(
@@ -337,6 +356,11 @@ export class TeamManager extends Component {
     console.log(
       `📊 TeamManager: Updated team counts - Red: ${TeamManager.redTeamCount}, Blue: ${TeamManager.blueTeamCount}`
     );
+
+    // Broadcast the updated team assignment if we have an instance
+    if (TeamManager.instance) {
+      TeamManager.instance.broadcastCompleteTeamAssignment();
+    }
 
     return true;
   }
