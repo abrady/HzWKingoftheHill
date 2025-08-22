@@ -35,6 +35,7 @@ export class PlayerTeamAssignedPayload {
 
 /**
  * NETWORK EVENT - Broadcasts team assignments to all clients
+ * NOTE: Requires NetworkedEntityComponent on the entity using this event
  */
 export const PlayerTeamAssignedNetworkEvent = new NetworkEvent(
   "PlayerTeamAssignedNetwork",
@@ -54,6 +55,7 @@ export class PlayerTeamRemovedPayload {
 
 /**
  * NETWORK EVENT - Broadcasts team removals to all clients
+ * NOTE: Requires NetworkedEntityComponent on the entity using this event
  */
 export const PlayerTeamRemovedNetworkEvent = new NetworkEvent(
   "PlayerTeamRemovedNetwork",
@@ -84,6 +86,8 @@ export class TeamManager extends Component {
     console.log(
       `📊 TeamManager: Current teams - Red: ${TeamManager.redTeamCount}, Blue: ${TeamManager.blueTeamCount}`
     );
+    console.log(`🔍 TeamManager: Entity is owned: ${this.entity.isOwned()}`);
+    console.log(`🔍 TeamManager: Entity debugId: ${this.entity.debugId}`);
   }
 
   /**

@@ -376,18 +376,6 @@
                 },
                 {
                     "data": {
-                        "class": "TeamManager",
-                        "definitionAsset": {
-                            "packageOrRemoteId": "24424494143868339",
-                            "ingestionId": "956191489785206833",
-                            "targetId": 4237980480
-                        },
-                        "data": {}
-                    },
-                    "dataType": "horizon::DataDefinitionAsset"
-                },
-                {
-                    "data": {
                         "class": "GameManager",
                         "definitionAsset": {
                             "packageOrRemoteId": "24424494143868339",
@@ -558,6 +546,33 @@
                 }
             ],
             "attributes": []
+        },
+        {
+            "id": "5db8ead0-c1ac-49b0-8669-525490ecd050",
+            "name": "TeamManager",
+            "components": [
+                {
+                    "data": {
+                        "class": "horizon::platform_api::TransformPlatformComponent",
+                        "version": 2,
+                        "data": {}
+                    },
+                    "dataType": "horizon::DataDefinitionAsset"
+                },
+                {
+                    "data": {
+                        "class": "TeamManager",
+                        "definitionAsset": {
+                            "packageOrRemoteId": "24424494143868339",
+                            "ingestionId": "956191489785206833",
+                            "targetId": 4237980480
+                        },
+                        "data": {}
+                    },
+                    "dataType": "horizon::DataDefinitionAsset"
+                }
+            ],
+            "attributes": []
         }
     ],
     "relationships": [
@@ -605,6 +620,11 @@
             "relationshipType": "RelationChildOf",
             "source": "1321091d-6952-4a01-ae7e-9a038d452d5d",
             "destination": "48ea49a3-ccda-4d6b-84b8-641c89d2bb80"
+        },
+        {
+            "relationshipType": "RelationChildOf",
+            "source": "5db8ead0-c1ac-49b0-8669-525490ecd050",
+            "destination": "3c20ea8a-80a3-44c4-b582-6a2a16a943fd"
         }
     ]
 }
