@@ -2,4 +2,6 @@ tsconfig.json
 .vscode/launch.json
 .vscode/tasks.json
 .vscode/scan_debuggers.py
-  
+docs/
+CLAUDE.md*
+.claude/
